@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a reproducible problem using synthetic data only.
+title: "fix: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Remove payloads, secrets, tokens, target URLs, and identifiers.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Environment
+      description: Go, PostgreSQL, Docker, and operating system versions.
+    validations:
+      required: true
