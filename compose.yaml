@@ -1,0 +1,111 @@
+name: durable-webhook-delivery
+
+services:
+  postgres:
+    image: postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-webhooks}
+      POSTGRES_USER: ${POSTGRES_USER:-webhook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run make setup first}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    networks: [delivery]
+
+  api:
+    build:
+      context: .
+      target: runtime
+    command: ["serve"]
+    environment: &application-environment
+      DATABASE_URL: postgresql://${POSTGRES_USER:-webhook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webhooks}
+      MASTER_KEY_BASE64: ${MASTER_KEY_BASE64:?Run make setup first}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Run make setup first}
+      ALLOW_PRIVATE_TARGETS: ${ALLOW_PRIVATE_TARGETS:-false}
+      MIGRATIONS_DIR: /app/migrations
+      MAX_BODY_BYTES: 1048576
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    networks: [delivery]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    command: ["worker"]
+    environment:
+      <<: *application-environment
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+      LEASE_DURATION: ${LEASE_DURATION:-5s}
+      POLL_INTERVAL: ${POLL_INTERVAL:-200ms}
+      WORKER_HEALTH_ADDRESS: :9090
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "/app/durable-webhook-delivery", "healthcheck", "http://127.0.0.1:9090/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    networks: [delivery]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 192M
+
+  receiver:
+    build:
+      context: .
+      target: runtime
+    entrypoint: ["/app/demo-receiver"]
+    ports:
+      - "127.0.0.1:8081:8081"
+    healthcheck:
+      test: ["CMD", "/app/durable-webhook-delivery", "healthcheck", "http://127.0.0.1:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    networks: [delivery]
+
+volumes:
+  postgres_data:
+
+networks:
+  delivery:
+    internal: true

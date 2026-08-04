@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        env:
+          POSTGRES_DB: webhooks_test
+          POSTGRES_USER: webhook_test
+          POSTGRES_PASSWORD: local-ci-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U webhook_test -d webhooks_test"
+          --health-interval 3s --health-timeout 3s --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgresql://webhook_test:local-ci-password@127.0.0.1:5432/webhooks_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.5
+          cache: true
+      - name: Verify modules
+        run: go mod download && go mod verify
+      - name: Check formatting
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Vet
+        run: go vet ./...
+      - name: Test with race detector and PostgreSQL
+        run: go test -race -coverprofile=coverage.out ./...
+      - name: Build binaries
+        run: |
+          go build ./cmd/durable-webhook-delivery
+          go build ./cmd/demo-receiver
+
+  controlled-scenarios:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Generate local-only secrets
+        run: ./scripts/setup-env.sh
+      - name: Run failure and recovery scenarios
+        run: ./scripts/controlled-scenarios.sh
+      - name: Print diagnostics on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes
