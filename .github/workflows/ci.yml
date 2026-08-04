@@ -42,7 +42,9 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Test with race detector and PostgreSQL
-        run: go test -race -coverprofile=coverage.out ./...
+        # Integration packages reset the same disposable CI database, so they
+        # must not run concurrently with one another.
+        run: go test -p 1 -race -coverprofile=coverage.out ./...
       - name: Build binaries
         run: |
           go build ./cmd/durable-webhook-delivery

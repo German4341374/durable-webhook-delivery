@@ -80,7 +80,7 @@ make up
 curl --fail http://127.0.0.1:8080/health/ready
 ```
 
-`make setup` creates `.env` with random local credentials and mode `0600` through `umask`. Never copy the demonstration settings to production. The Compose network is internal, so the local service can deliver only to its bundled receiver.
+`make setup` creates `.env` with random local credentials and mode `0600` through `umask`. Never copy the demonstration settings to production. Compose keeps PostgreSQL on a private database network. A separate edge network publishes the API and demo receiver to localhost and gives the worker the egress it needs for deliveries.
 
 ## API example
 

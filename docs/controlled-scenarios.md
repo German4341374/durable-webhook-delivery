@@ -1,6 +1,6 @@
 # Controlled scenarios
 
-`scripts/controlled-scenarios.sh` uses only the isolated Compose network and synthetic payloads.
+`scripts/controlled-scenarios.sh` uses only the local Compose networks and synthetic payloads. PostgreSQL remains on the internal database network; localhost can reach the API and demo receiver through the edge network.
 
 1. **Receiver HTTP 500:** a channel points to `/fail`, retries twice with jitter, then reaches dead letter.
 2. **Receiver timeout:** `/timeout` waits longer than the channel timeout; the worker retries and dead-letters it.
