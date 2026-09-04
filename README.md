@@ -5,7 +5,7 @@
 [![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A compact webhook ingress and delivery service built to demonstrate durable at-least-once processing, PostgreSQL transactional outbox, controlled retry behavior, and practical outbound-request security.
+A compact webhook ingress and delivery service built around durable at-least-once processing, a PostgreSQL transactional outbox, controlled retries, and practical outbound-request security.
 
 ## Features
 
