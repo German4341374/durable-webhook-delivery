@@ -5,7 +5,12 @@
 [![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A compact webhook ingress and delivery service built around durable at-least-once processing, a PostgreSQL transactional outbox, controlled retries, and practical outbound-request security.
+This service accepts a signed webhook, saves it in PostgreSQL, and sends it to the configured
+receiver in the background. If the receiver is down or too slow, the workers try again.
+You can inspect failed deliveries and replay them manually.
+
+A delivery can arrive more than once, especially after a restart. The receiver still needs
+to handle duplicates; the delivery guarantees below explain where they can happen.
 
 ## Features
 
